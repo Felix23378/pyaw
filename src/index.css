@@ -1,0 +1,258 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --paper: #f6f1e7;
+  --surface: #fffcf5;
+  --surface-2: #f1e9db;
+  --ink: #181512;
+  --muted: #6b6358;
+  --line: #e4dacb;
+  --line-strong: #d6c8b4;
+  --marigold: #e09a2b;
+  --marigold-soft: #f4d9a6;
+  --marigold-deep: #b45309;
+  --jade: #2f7a5b;
+  --rust: #c2410c;
+  --shadow-color: 24, 21, 18;
+}
+
+.dark {
+  --paper: #12100e;
+  --surface: #1c1916;
+  --surface-2: #26211c;
+  --ink: #f4ede1;
+  --muted: #a79d8f;
+  --line: #302a24;
+  --line-strong: #453c32;
+  --marigold: #f0b45a;
+  --marigold-soft: #5a431f;
+  --marigold-deep: #f6c87a;
+  --jade: #65b992;
+  --rust: #f08a5a;
+  --shadow-color: 0, 0, 0;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-marigold: var(--marigold);
+  --color-marigold-soft: var(--marigold-soft);
+  --color-marigold-deep: var(--marigold-deep);
+  --color-jade: var(--jade);
+  --color-rust: var(--rust);
+
+  --font-sans: 'Instrument Sans Variable', 'Instrument Sans', ui-sans-serif, system-ui,
+    -apple-system, 'Segoe UI', sans-serif;
+  --font-mm: 'Noto Sans Myanmar', 'Padauk', 'Myanmar Text', 'Pyidaungsu', 'Myanmar Sans Pro',
+    sans-serif;
+
+  --radius-card: 1.5rem;
+  --shadow-card: 0 1px 2px rgba(var(--shadow-color), 0.04),
+    0 14px 36px rgba(var(--shadow-color), 0.07);
+  --shadow-lift: 0 2px 4px rgba(var(--shadow-color), 0.05),
+    0 22px 48px rgba(var(--shadow-color), 0.1);
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-paper font-sans text-ink antialiased;
+    background-image: radial-gradient(rgba(24, 21, 18, 0.045) 1px, transparent 1px);
+    background-size: 18px 18px;
+    background-attachment: fixed;
+    min-height: 100dvh;
+  }
+
+  .dark body {
+    background-image: radial-gradient(rgba(244, 237, 225, 0.035) 1px, transparent 1px);
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: var(--marigold-soft);
+    color: var(--ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--marigold-deep);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+@utility paper-card {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--line);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.mm-text {
+  font-family: var(--font-mm);
+  line-height: 1.95;
+  letter-spacing: 0;
+  word-break: break-word;
+}
+
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes soft-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-soft-in {
+  animation: soft-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out both;
+}
+
+.animate-sheet-in {
+  animation: sheet-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-pop-in {
+  animation: pop-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-bob {
+  animation: bob 3.2s ease-in-out infinite;
+}
+
+.pulse-ring {
+  animation: pulse-ring 2.2s ease-out infinite;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--line) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
