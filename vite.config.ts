@@ -3,7 +3,10 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const base = process.env.VITE_BASE_PATH || '/'
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     tailwindcss(),
@@ -19,8 +22,8 @@ export default defineConfig({
         background_color: '#F6F1E7',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: base,
+        start_url: base,
         lang: 'en',
         categories: ['productivity', 'utilities'],
         icons: [
@@ -38,7 +41,7 @@ export default defineConfig({
           {
             name: 'New recording',
             short_name: 'Record',
-            url: '/?record=1',
+            url: `${base}?record=1`,
             icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }],
           },
         ],
@@ -46,7 +49,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        navigateFallback: '/index.html',
+        navigateFallback: `${base}index.html`,
         cleanupOutdatedCaches: true,
         clientsClaim: false,
         skipWaiting: false,
