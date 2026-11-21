@@ -1,4 +1,11 @@
-import type { ModelConfig, Settings } from './types'
+import type { ModelConfig, OutputMode, Settings } from './types'
+
+export const OUTPUT_MODES: { id: OutputMode; label: string; hint: string }[] = [
+  { id: 'verbatim', label: 'Verbatim', hint: 'Exact spoken words' },
+  { id: 'clean', label: 'Clean', hint: 'Polished Burmese, no fillers' },
+  { id: 'english', label: 'English', hint: 'Translate Myanmar to English' },
+  { id: 'bullets', label: 'Bullets', hint: 'Short bullet notes' },
+]
 
 export const DEFAULT_MODELS: ModelConfig[] = [
   { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', enabled: true },
@@ -12,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
   keys: [],
   models: DEFAULT_MODELS,
   languageMode: 'my',
+  outputMode: 'verbatim',
   autoCopy: true,
   keepAudio: false,
   maxDurationSec: 600,

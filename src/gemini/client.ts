@@ -1,4 +1,4 @@
-import type { LanguageMode } from '../types'
+import type { LanguageMode, OutputMode } from '../types'
 import { MAX_INLINE_AUDIO_BYTES } from '../config'
 import { buildSystemPrompt } from './prompt'
 import { uploadAudioFile } from './files'
@@ -40,6 +40,7 @@ interface TranscribeOptions {
   blob: Blob
   mimeType: string
   languageMode: LanguageMode
+  outputMode?: OutputMode
   signal?: AbortSignal
   onDelta?: (text: string) => void
   onStatus?: (message: string) => void
@@ -52,11 +53,12 @@ type AudioPart =
 function buildBody(
   audioPart: AudioPart,
   languageMode: LanguageMode,
+  outputMode: OutputMode,
   includeThinkingConfig: boolean,
 ) {
   return {
     systemInstruction: {
-      parts: [{ text: buildSystemPrompt(languageMode) }],
+      parts: [{ text: buildSystemPrompt(languageMode, outputMode) }],
     },
     contents: [
       {
@@ -280,6 +282,7 @@ async function sendGenerateRequest(
   apiKey: string,
   audioPart: AudioPart,
   languageMode: LanguageMode,
+  outputMode: OutputMode,
   signal: AbortSignal | undefined,
   onDelta?: (text: string) => void,
 ): Promise<string> {
@@ -291,7 +294,7 @@ async function sendGenerateRequest(
       return await request(
         endpoint,
         apiKey,
-        buildBody(audioPart, languageMode, true),
+        buildBody(audioPart, languageMode, outputMode, true),
         signal,
         onDelta,
       )
@@ -301,7 +304,7 @@ async function sendGenerateRequest(
         return request(
           endpoint,
           apiKey,
-          buildBody(audioPart, languageMode, false),
+          buildBody(audioPart, languageMode, outputMode, false),
           signal,
           onDelta,
         )
@@ -321,7 +324,18 @@ async function sendGenerateRequest(
 }
 
 export async function transcribeAudio(options: TranscribeOptions): Promise<string> {
-  const { apiKey, keyId, model, blob, mimeType, languageMode, signal, onDelta, onStatus } = options
+  const {
+    apiKey,
+    keyId,
+    model,
+    blob,
+    mimeType,
+    languageMode,
+    outputMode = 'verbatim',
+    signal,
+    onDelta,
+    onStatus,
+  } = options
 
   if (blob.size === 0) {
     throw new GeminiApiError(
@@ -344,6 +358,7 @@ export async function transcribeAudio(options: TranscribeOptions): Promise<strin
       apiKey,
       { fileData: { mimeType: uploaded.mimeType, fileUri: uploaded.uri } },
       languageMode,
+      outputMode,
       signal,
       onDelta,
     )
@@ -360,6 +375,7 @@ export async function transcribeAudio(options: TranscribeOptions): Promise<strin
       apiKey,
       { inlineData: { mimeType, data: audioBase64 } },
       languageMode,
+      outputMode,
       signal,
       onDelta,
     )

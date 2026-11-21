@@ -68,6 +68,7 @@ export function useTranscription() {
   settingsRef.current = settings
 
   const addRecent = useAppStore((store) => store.addRecent)
+  const updateRecent = useAppStore((store) => store.updateRecent)
   const notify = useAppStore((store) => store.notify)
 
   const abortRef = useRef<AbortController | null>(null)
@@ -106,7 +107,7 @@ export function useTranscription() {
   )
 
   const transcribe = useCallback(
-    async (recording: Recording) => {
+    async (recording: Recording, options?: { appendToEntryId?: string }) => {
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
@@ -152,16 +153,43 @@ export function useTranscription() {
             ),
         })
 
-        let saved = entry
-        if (settingsRef.current.keepAudio) {
-          try {
-            const audioId = await saveAudio(entry.id, recording.blob)
-            saved = { ...entry, audioId }
-          } catch {
-            // Keeping audio is optional; never fail a transcript over it.
+        const appendTarget = options?.appendToEntryId
+          ? useAppStore.getState().recents.find((item) => item.id === options.appendToEntryId)
+          : undefined
+
+        let saved: TranscriptEntry
+        let wasAppended = false
+
+        if (appendTarget) {
+          wasAppended = true
+          const separator = settingsRef.current.outputMode === 'bullets' ? '\n' : '\n\n'
+          const combinedText =
+            entry.text === '[no speech]'
+              ? appendTarget.text
+              : appendTarget.text === '[no speech]'
+                ? entry.text
+                : `${appendTarget.text}${separator}${entry.text}`
+          const patch: Partial<TranscriptEntry> = {
+            text: combinedText,
+            durationMs: appendTarget.durationMs + entry.durationMs,
+            model: entry.model,
+            charCount: [...combinedText].length,
           }
+          updateRecent(appendTarget.id, patch)
+          saved = { ...appendTarget, ...patch, updatedAt: Date.now() }
+        } else {
+          saved = entry
+          if (settingsRef.current.keepAudio) {
+            try {
+              const audioId = await saveAudio(entry.id, recording.blob)
+              saved = { ...entry, audioId }
+            } catch {
+              // Keeping audio is optional; never fail a transcript over it.
+            }
+          }
+          addRecent(saved)
         }
-        addRecent(saved)
+
         setState((previous) => ({
           ...previous,
           status: 'success',
@@ -173,9 +201,13 @@ export function useTranscription() {
 
         if (settingsRef.current.autoCopy && saved.text !== '[no speech]') {
           const copied = await copyText(saved.text)
-          notify(copied ? 'Copied to clipboard' : 'Saved to recents — tap Copy')
+          if (wasAppended) {
+            notify(copied ? 'Appended & copied to clipboard' : 'Appended to note — tap Copy')
+          } else {
+            notify(copied ? 'Copied to clipboard' : 'Saved to recents — tap Copy')
+          }
         } else {
-          notify('Transcript saved to recents')
+          notify(wasAppended ? 'Appended to note' : 'Transcript saved to recents')
         }
 
         void pruneAudio()
@@ -204,7 +236,7 @@ export function useTranscription() {
         if (abortRef.current === controller) abortRef.current = null
       }
     },
-    [addRecent, notify, queueRecording],
+    [addRecent, notify, queueRecording, updateRecent],
   )
 
   const cancel = useCallback(() => {

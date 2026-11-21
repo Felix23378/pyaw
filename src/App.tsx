@@ -96,6 +96,7 @@ export default function App() {
   useHealth()
 
   const settings = useAppStore((store) => store.settings)
+  const updateSettings = useAppStore((store) => store.updateSettings)
   const onboarded = useAppStore((store) => store.onboarded)
   const settingsOpen = useAppStore((store) => store.settingsOpen)
   const setSettingsOpen = useAppStore((store) => store.setSettingsOpen)
@@ -103,9 +104,11 @@ export default function App() {
   const setPending = useAppStore((store) => store.setPending)
 
   const transcription = useTranscription()
+  const recorderRef = useRef<HTMLDivElement>(null)
   const resultRef = useRef<HTMLDivElement>(null)
   const hasOpenedWelcome = useRef(false)
   const [autoStartRecord, setAutoStartRecord] = useState(false)
+  const [appendEntryId, setAppendEntryId] = useState<string | null>(null)
 
   const hasKeys = settings.keys.length > 0
 
@@ -141,11 +144,19 @@ export default function App() {
 
   const handleRecording = useCallback(
     (recording: Recording) => {
+      const targetId = appendEntryId
+      setAppendEntryId(null)
       scrollToResult()
-      void transcription.transcribe(recording)
+      void transcription.transcribe(recording, targetId ? { appendToEntryId: targetId } : undefined)
     },
-    [scrollToResult, transcription],
+    [appendEntryId, scrollToResult, transcription],
   )
+
+  const handleContinue = useCallback((entryId: string) => {
+    setAppendEntryId(entryId)
+    recorderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setAutoStartRecord(true)
+  }, [])
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -156,19 +167,28 @@ export default function App() {
       <main className="mx-auto w-full max-w-[1120px] flex-1 px-4 pt-5 sm:px-6 sm:pt-7">
         <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] lg:gap-7">
           <div className="space-y-5">
-            <RecorderCard
-              hasKeys={hasKeys}
-              processing={transcription.status === 'processing'}
-              statusLine={transcription.statusLine}
-              maxDurationSec={settings.maxDurationSec}
-              audioDeviceId={settings.audioDeviceId}
-              autoStart={autoStartRecord}
-              onAutoStartHandled={() => setAutoStartRecord(false)}
-              onRecording={handleRecording}
-              onStartNew={transcription.reset}
-              onCancelProcessing={transcription.cancel}
-              onOpenSettings={() => setSettingsOpen(true)}
-            />
+            <div ref={recorderRef} className="scroll-mt-24">
+              <RecorderCard
+                hasKeys={hasKeys}
+                processing={transcription.status === 'processing'}
+                statusLine={transcription.statusLine}
+                maxDurationSec={settings.maxDurationSec}
+                outputMode={settings.outputMode}
+                onOutputModeChange={(mode) => updateSettings({ outputMode: mode })}
+                appending={Boolean(appendEntryId)}
+                onCancelAppend={() => setAppendEntryId(null)}
+                audioDeviceId={settings.audioDeviceId}
+                autoStart={autoStartRecord}
+                onAutoStartHandled={() => setAutoStartRecord(false)}
+                onRecording={handleRecording}
+                onStartNew={() => {
+                  setAppendEntryId(null)
+                  transcription.reset()
+                }}
+                onCancelProcessing={transcription.cancel}
+                onOpenSettings={() => setSettingsOpen(true)}
+              />
+            </div>
 
             <div ref={resultRef} className="scroll-mt-24">
               <TranscriptCard
@@ -178,7 +198,11 @@ export default function App() {
                 onCancel={transcription.cancel}
                 onSaveForLater={transcription.saveForLater}
                 onOpenSettings={() => setSettingsOpen(true)}
-                onReset={transcription.reset}
+                onContinue={handleContinue}
+                onReset={() => {
+                  setAppendEntryId(null)
+                  transcription.reset()
+                }}
               />
             </div>
 

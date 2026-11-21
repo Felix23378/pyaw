@@ -5,6 +5,7 @@ import {
   ChevronDown,
   CloudOff,
   Loader2,
+  Mic,
   Pencil,
   RefreshCw,
   Share2,
@@ -28,6 +29,7 @@ interface TranscriptCardProps {
   onCancel: () => void
   onSaveForLater: () => void
   onOpenSettings: () => void
+  onContinue: (entryId: string) => void
   onReset: () => void
 }
 
@@ -91,6 +93,7 @@ export function TranscriptCard({
   onCancel,
   onSaveForLater,
   onOpenSettings,
+  onContinue,
   onReset,
 }: TranscriptCardProps) {
   const storedEntry = useAppStore((store) =>
@@ -323,6 +326,15 @@ export function TranscriptCard({
 
         <div className="mt-4 flex flex-wrap items-center gap-1.5">
           <MetaChip>{entry.language === 'my' ? 'Burmese' : 'Auto language'}</MetaChip>
+          {entry.mode && entry.mode !== 'verbatim' && (
+            <MetaChip>
+              {entry.mode === 'clean'
+                ? 'Clean'
+                : entry.mode === 'english'
+                  ? 'English'
+                  : 'Bullets'}
+            </MetaChip>
+          )}
           <MetaChip>{prettyModel(entry.model)}</MetaChip>
           <MetaChip>{entry.charCount} characters</MetaChip>
           {entry.source === 'queue' && <MetaChip>From queue</MetaChip>}
@@ -330,6 +342,10 @@ export function TranscriptCard({
 
         <div className="mt-5 flex flex-wrap items-center gap-1 border-t border-line/70 pt-4">
           <CopyButton text={text} variant="secondary" />
+          <Button variant="secondary" size="sm" onClick={() => onContinue(entry.id)}>
+            <Mic className="size-3.5" />
+            Continue
+          </Button>
           <Button variant="ghost" size="sm" onClick={handleShare}>
             <Share2 className="size-3.5" />
             Share

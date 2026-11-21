@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   AlertCircle,
   KeyRound,
@@ -11,17 +11,24 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import type { Recording } from '../types'
-import { formatDuration } from '../lib/utils'
+import type { OutputMode, Recording } from '../types'
+import { OUTPUT_MODES } from '../config'
+import { cn, formatDuration } from '../lib/utils'
 import { useRecorder } from '../audio/useRecorder'
 import { Waveform } from './Waveform'
 import { Button } from './ui/Button'
+
+const HOLD_THRESHOLD_MS = 320
 
 interface RecorderCardProps {
   hasKeys: boolean
   processing: boolean
   statusLine: string
   maxDurationSec: number
+  outputMode: OutputMode
+  onOutputModeChange: (mode: OutputMode) => void
+  appending?: boolean
+  onCancelAppend?: () => void
   audioDeviceId?: string
   autoStart?: boolean
   onAutoStartHandled?: () => void
@@ -36,6 +43,10 @@ export function RecorderCard({
   processing,
   statusLine,
   maxDurationSec,
+  outputMode,
+  onOutputModeChange,
+  appending,
+  onCancelAppend,
   audioDeviceId,
   autoStart,
   onAutoStartHandled,
@@ -61,6 +72,9 @@ export function RecorderCard({
 
   const cardRef = useRef<HTMLElement>(null)
   const [cardOffscreen, setCardOffscreen] = useState(false)
+  const [holding, setHolding] = useState(false)
+  const holdRef = useRef<{ startedAt: number; startedRecording: boolean } | null>(null)
+  const spaceDownAtRef = useRef<number | null>(null)
 
   useEffect(() => {
     const node = cardRef.current
@@ -79,20 +93,23 @@ export function RecorderCard({
   useEffect(() => {
     if (!autoStart || processing || status !== 'idle') return
     onAutoStartHandled?.()
-    onStartNew()
+    if (!appending) onStartNew()
     void start()
-  }, [autoStart, onAutoStartHandled, onStartNew, processing, start, status])
+  }, [appending, autoStart, onAutoStartHandled, onStartNew, processing, start, status])
 
   const isPaused = status === 'paused'
   const requesting = status === 'requesting'
   const active = isRecording
 
   const begin = () => {
-    onStartNew()
+    if (!appending) onStartNew()
     void start()
   }
 
-  const handleCenter = () => {
+  const handleCenterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    // Pointer interactions are handled by pointerDown/pointerUp for tap + push-to-talk.
+    // Keep onClick for keyboard activation (detail === 0).
+    if (event.detail !== 0) return
     if (processing || requesting) return
     if (isPaused) {
       resume()
@@ -103,6 +120,44 @@ export function RecorderCard({
       return
     }
     begin()
+  }
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0 || processing || requesting) return
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    if (!isRecording && !isPaused) {
+      holdRef.current = { startedAt: Date.now(), startedRecording: true }
+      setHolding(true)
+      begin()
+    } else {
+      holdRef.current = { startedAt: Date.now(), startedRecording: false }
+    }
+  }
+
+  const handlePointerUp = () => {
+    const hold = holdRef.current
+    holdRef.current = null
+    setHolding(false)
+    if (!hold) return
+
+    if (hold.startedRecording) {
+      const heldMs = Date.now() - hold.startedAt
+      if (heldMs >= HOLD_THRESHOLD_MS && isRecording) {
+        stop()
+      }
+      return
+    }
+
+    if (isPaused) {
+      resume()
+    } else if (isRecording) {
+      stop()
+    }
+  }
+
+  const handlePointerCancel = () => {
+    holdRef.current = null
+    setHolding(false)
   }
 
   useEffect(() => {
@@ -119,12 +174,35 @@ export function RecorderCard({
         return
       }
       event.preventDefault()
-      if (isPaused) resume()
-      else if (isRecording) stop()
-      else begin()
+      if (isPaused) {
+        spaceDownAtRef.current = null
+        resume()
+      } else if (isRecording) {
+        spaceDownAtRef.current = null
+        stop()
+      } else {
+        spaceDownAtRef.current = Date.now()
+        setHolding(true)
+        begin()
+      }
     }
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== 'Space') return
+      const downAt = spaceDownAtRef.current
+      spaceDownAtRef.current = null
+      setHolding(false)
+      if (downAt != null && Date.now() - downAt >= HOLD_THRESHOLD_MS && isRecording) {
+        stop()
+      }
+    }
+
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
   })
 
   return (
@@ -166,6 +244,56 @@ export function RecorderCard({
           )}
         </div>
 
+        {!processing && (
+          <div className="relative px-5 pt-4 sm:px-7">
+            <div
+              role="radiogroup"
+              aria-label="Output mode"
+              className="grid grid-cols-4 gap-1 rounded-full border border-line bg-surface-2/80 p-1"
+            >
+              {OUTPUT_MODES.map((option) => {
+                const selected = outputMode === option.id
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    disabled={active || requesting}
+                    title={option.hint}
+                    onClick={() => onOutputModeChange(option.id)}
+                    className={cn(
+                      'rounded-full px-2 py-1.5 text-[11px] font-medium transition disabled:opacity-50 sm:text-xs',
+                      selected
+                        ? 'bg-surface text-ink shadow-sm'
+                        : 'text-muted hover:text-ink',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {appending && (
+              <div className="mt-2.5 flex items-center justify-between gap-2 rounded-full border border-marigold/30 bg-marigold-soft/45 px-3 py-1.5 text-xs text-marigold-deep">
+                <span className="truncate font-medium">Adding to your last note</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (active) cancel()
+                    onCancelAppend?.()
+                  }}
+                  aria-label="Cancel appending to note"
+                  className="grid size-5 shrink-0 place-items-center rounded-full hover:bg-marigold/20"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {processing ? (
           <div className="relative flex flex-col items-center px-5 pb-7 pt-7 sm:px-7">
             <div className="relative grid size-24 place-items-center rounded-full bg-marigold-soft/60 sm:size-28">
@@ -201,22 +329,27 @@ export function RecorderCard({
               )}
               <button
                 type="button"
-                onClick={handleCenter}
+                onClick={handleCenterClick}
+                onPointerDown={handlePointerDown}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerCancel}
+                onContextMenu={(event) => event.preventDefault()}
                 disabled={requesting}
                 aria-label={
                   isPaused
                     ? 'Resume recording'
                     : isRecording
                       ? 'Stop recording and transcribe'
-                      : 'Start recording'
+                      : 'Tap or hold to record'
                 }
                 aria-pressed={active}
                 aria-keyshortcuts="Space"
                 className={[
-                  'relative z-10 grid size-24 place-items-center rounded-full transition-all duration-300 sm:size-28',
+                  'relative z-10 grid size-24 touch-none select-none place-items-center rounded-full transition-all duration-300 sm:size-28',
                   isRecording || isPaused
                     ? 'bg-rust text-white shadow-lift hover:brightness-95'
                     : 'bg-marigold text-[#23180a] shadow-lift hover:-translate-y-0.5 hover:brightness-[0.98]',
+                  holding && isRecording ? 'scale-95' : '',
                   requesting ? 'cursor-wait opacity-70' : '',
                 ].join(' ')}
               >
@@ -242,7 +375,7 @@ export function RecorderCard({
                   <span
                     className={`size-1.5 rounded-full ${isPaused ? 'bg-muted' : 'bg-rust'}`}
                   />
-                  {isPaused ? 'Paused' : 'Recording'}
+                  {isPaused ? 'Paused' : holding ? 'Release to transcribe' : 'Recording'}
                 </span>
               )}
             </div>
@@ -283,11 +416,11 @@ export function RecorderCard({
                   'Waiting for microphone permission…'
                 ) : (
                   <>
-                    Tap the mic, or press{' '}
+                    Tap or hold mic (or{' '}
                     <kbd className="rounded-md border border-line bg-surface px-1.5 py-0.5 font-sans text-[10px] text-ink">
                       Space
-                    </kbd>{' '}
-                    · up to {Math.round(maxDurationSec / 60)} min
+                    </kbd>
+                    ) · up to {Math.round(maxDurationSec / 60)} min
                   </>
                 )}
               </p>

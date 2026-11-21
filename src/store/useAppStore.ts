@@ -319,6 +319,7 @@ export const useAppStore = create<AppState>()(
           ...current.settings,
           ...(storedSettings ?? {}),
           sessionOnlyKeys: sessionOnly,
+          outputMode: storedSettings?.outputMode ?? current.settings.outputMode,
           audioDeviceId:
             typeof storedSettings?.audioDeviceId === 'string' ? storedSettings.audioDeviceId : '',
           keys,

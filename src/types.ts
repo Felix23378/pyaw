@@ -1,5 +1,6 @@
 export type Theme = 'system' | 'light' | 'dark'
 export type LanguageMode = 'my' | 'auto'
+export type OutputMode = 'verbatim' | 'clean' | 'english' | 'bullets'
 export type KeyStatus = 'unknown' | 'ok' | 'cooling' | 'exhausted' | 'invalid'
 
 export interface ApiKey {
@@ -20,6 +21,7 @@ export interface Settings {
   keys: ApiKey[]
   models: ModelConfig[]
   languageMode: LanguageMode
+  outputMode: OutputMode
   autoCopy: boolean
   keepAudio: boolean
   maxDurationSec: number
@@ -35,6 +37,7 @@ export interface TranscriptEntry {
   durationMs: number
   model: string
   language: LanguageMode
+  mode?: OutputMode
   source: 'live' | 'queue'
   charCount: number
   audioId?: string

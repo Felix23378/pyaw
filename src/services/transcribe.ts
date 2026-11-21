@@ -45,6 +45,7 @@ export async function transcribeRecording(input: TranscribeInput): Promise<Trans
         blob: recording.blob,
         mimeType: recording.mimeType,
         languageMode: settings.languageMode,
+        outputMode: settings.outputMode,
         signal,
         onDelta,
         onStatus: input.onStatus,
@@ -62,6 +63,7 @@ export async function transcribeRecording(input: TranscribeInput): Promise<Trans
     durationMs: recording.durationMs,
     model: result.model,
     language: settings.languageMode,
+    mode: settings.outputMode,
     source,
     charCount: [...text].length,
   }
