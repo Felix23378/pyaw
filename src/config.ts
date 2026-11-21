@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS: Settings = {
   keys: [],
   models: DEFAULT_MODELS,
   languageMode: 'my',
-  autoCopy: false,
+  autoCopy: true,
   keepAudio: false,
   maxDurationSec: 600,
   sessionOnlyKeys: false,

@@ -171,9 +171,9 @@ export function useTranscription() {
           statusLine: '',
         }))
 
-        if (settingsRef.current.autoCopy) {
+        if (settingsRef.current.autoCopy && saved.text !== '[no speech]') {
           const copied = await copyText(saved.text)
-          notify(copied ? 'Transcript copied to clipboard' : 'Transcript saved to recents')
+          notify(copied ? 'Copied to clipboard' : 'Saved to recents — tap Copy')
         } else {
           notify('Transcript saved to recents')
         }

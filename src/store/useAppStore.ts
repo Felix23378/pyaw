@@ -288,7 +288,17 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: STORE_KEY,
-      version: 1,
+      version: 2,
+      migrate: (persisted, version) => {
+        const stored = (persisted ?? {}) as Partial<PersistedState>
+        if (version < 2 && stored.settings) {
+          return {
+            ...stored,
+            settings: { ...stored.settings, autoCopy: true },
+          } as PersistedState
+        }
+        return stored as PersistedState
+      },
       partialize: (state) => ({
         settings: state.settings.sessionOnlyKeys
           ? { ...state.settings, keys: [] }
