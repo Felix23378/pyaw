@@ -32,6 +32,7 @@ interface RecorderCardProps {
   audioDeviceId?: string
   autoStart?: boolean
   onAutoStartHandled?: () => void
+  onBeforeStop?: () => void
   onRecording: (recording: Recording) => void
   onStartNew: () => void
   onCancelProcessing: () => void
@@ -50,6 +51,7 @@ export function RecorderCard({
   audioDeviceId,
   autoStart,
   onAutoStartHandled,
+  onBeforeStop,
   onRecording,
   onStartNew,
   onCancelProcessing,
@@ -106,6 +108,11 @@ export function RecorderCard({
     void start()
   }
 
+  const finishRecording = () => {
+    onBeforeStop?.()
+    stop()
+  }
+
   const handleCenterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     // Pointer interactions are handled by pointerDown/pointerUp for tap + push-to-talk.
     // Keep onClick for keyboard activation (detail === 0).
@@ -116,7 +123,7 @@ export function RecorderCard({
       return
     }
     if (isRecording) {
-      stop()
+      finishRecording()
       return
     }
     begin()
@@ -143,7 +150,7 @@ export function RecorderCard({
     if (hold.startedRecording) {
       const heldMs = Date.now() - hold.startedAt
       if (heldMs >= HOLD_THRESHOLD_MS && isRecording) {
-        stop()
+        finishRecording()
       }
       return
     }
@@ -151,7 +158,7 @@ export function RecorderCard({
     if (isPaused) {
       resume()
     } else if (isRecording) {
-      stop()
+      finishRecording()
     }
   }
 
@@ -179,7 +186,7 @@ export function RecorderCard({
         resume()
       } else if (isRecording) {
         spaceDownAtRef.current = null
-        stop()
+        finishRecording()
       } else {
         spaceDownAtRef.current = Date.now()
         setHolding(true)
@@ -193,7 +200,7 @@ export function RecorderCard({
       spaceDownAtRef.current = null
       setHolding(false)
       if (downAt != null && Date.now() - downAt >= HOLD_THRESHOLD_MS && isRecording) {
-        stop()
+        finishRecording()
       }
     }
 
@@ -396,7 +403,7 @@ export function RecorderCard({
                   {isPaused ? <Play className="size-3.5 fill-current" /> : <Pause className="size-3.5" />}
                   {isPaused ? 'Resume' : 'Pause'}
                 </Button>
-                <Button variant="primary" size="md" onClick={stop}>
+                <Button variant="primary" size="md" onClick={finishRecording}>
                   <Square className="size-3.5 fill-current" />
                   Stop & transcribe
                 </Button>
@@ -469,7 +476,7 @@ export function RecorderCard({
             <span className="min-w-0 flex-1 truncate text-xs text-muted">
               {isPaused ? 'Paused' : 'Recording your thought'}
             </span>
-            <Button variant="primary" size="sm" onClick={stop}>
+            <Button variant="primary" size="sm" onClick={finishRecording}>
               <Square className="size-3 fill-current" />
               Stop
             </Button>

@@ -1,5 +1,6 @@
 import type { LanguageMode, OutputMode } from '../types'
 import { MAX_INLINE_AUDIO_BYTES } from '../config'
+import { transcodeBlobToWav } from '../audio/encode'
 import { buildSystemPrompt } from './prompt'
 import { uploadAudioFile } from './files'
 
@@ -300,7 +301,9 @@ async function sendGenerateRequest(
       )
     } catch (error) {
       const message = error instanceof GeminiApiError ? error.body || error.message : ''
-      if (error instanceof GeminiApiError && error.status === 400 && /thinking/i.test(message)) {
+      const isSafetyOrKey =
+        /blockReason|safety|recitation|blocked|API_KEY_INVALID|API key not valid/i.test(message)
+      if (error instanceof GeminiApiError && error.status === 400 && !isSafetyOrKey) {
         return request(
           endpoint,
           apiKey,
@@ -383,6 +386,32 @@ export async function transcribeAudio(options: TranscribeOptions): Promise<strin
     if (error instanceof GeminiApiError && error.status === 413) {
       return sendViaFilesApi()
     }
+    const errText = error instanceof GeminiApiError ? error.body || error.message : ''
+    const isSafetyOrKey =
+      /blockReason|safety|recitation|blocked|API_KEY_INVALID|API key not valid/i.test(errText)
+    if (
+      error instanceof GeminiApiError &&
+      error.status === 400 &&
+      !isSafetyOrKey &&
+      mimeType !== 'audio/wav'
+    ) {
+      try {
+        onStatus?.('Converting audio format…')
+        const wavBlob = await transcodeBlobToWav(blob)
+        const wavBase64 = await blobToBase64(wavBlob)
+        return await sendGenerateRequest(
+          model,
+          apiKey,
+          { inlineData: { mimeType: 'audio/wav', data: wavBase64 } },
+          languageMode,
+          outputMode,
+          signal,
+          onDelta,
+        )
+      } catch {
+        // Fall through to original error if WAV transcode isn't supported or also fails.
+      }
+    }
     throw error
   }
 }
@@ -402,7 +431,6 @@ export async function testApiKey(apiKey: string, model: string): Promise<void> {
 
 export function mimeTypeForApi(blobType: string): string {
   const base = blobType.split(';')[0].trim().toLowerCase()
-  if (base === 'audio/mp4' || base === 'audio/aac') return 'audio/m4a'
-  if (base === 'audio/x-m4a') return 'audio/m4a'
+  if (base === 'audio/x-m4a' || base === 'audio/m4a') return 'audio/mp4'
   return base || 'audio/webm'
 }

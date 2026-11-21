@@ -190,6 +190,18 @@ export function classifyError(input: unknown): ClassifiedError {
   }
 
   if (status === 400) {
+    if (
+      /API_KEY_INVALID|API key not valid|PERMISSION_DENIED/i.test(bodyText) ||
+      details.some((detail) => detail.reason === 'API_KEY_INVALID')
+    ) {
+      return {
+        kind: 'invalid_key',
+        message:
+          'This API key was rejected by Google. Check it in Settings or add another key.',
+        status,
+        quotaIds,
+      }
+    }
     if (/blockReason|safety|recitation|blocked/i.test(bodyText)) {
       return {
         kind: 'blocked',

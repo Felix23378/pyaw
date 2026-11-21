@@ -3,7 +3,7 @@ import type { Recording, TranscriptEntry } from '../types'
 import { useAppStore } from '../store/useAppStore'
 import { transcribeRecording } from '../services/transcribe'
 import { TranscriptionError, type AttemptEvent } from '../retry/orchestrator'
-import { copyText } from '../lib/clipboard'
+import { beginDeferredCopy, copyText, type DeferredCopy } from '../lib/clipboard'
 import { prettyModel } from '../lib/utils'
 import { listPendingMeta, pruneAudio, saveAudio, savePending } from '../storage/idb'
 
@@ -72,6 +72,18 @@ export function useTranscription() {
   const notify = useAppStore((store) => store.notify)
 
   const abortRef = useRef<AbortController | null>(null)
+  const deferredCopyRef = useRef<DeferredCopy | null>(null)
+
+  const clearDeferredCopy = useCallback(() => {
+    deferredCopyRef.current?.abort()
+    deferredCopyRef.current = null
+  }, [])
+
+  const prepareAutoCopy = useCallback(() => {
+    clearDeferredCopy()
+    if (!settingsRef.current.autoCopy) return
+    deferredCopyRef.current = beginDeferredCopy()
+  }, [clearDeferredCopy])
 
   const queueRecording = useCallback(
     async (recording: Recording) => {
@@ -200,13 +212,16 @@ export function useTranscription() {
         }))
 
         if (settingsRef.current.autoCopy && saved.text !== '[no speech]') {
-          const copied = await copyText(saved.text)
+          const deferred = deferredCopyRef.current
+          deferredCopyRef.current = null
+          const copied = (deferred ? await deferred.commit(saved.text) : false) || (await copyText(saved.text))
           if (wasAppended) {
             notify(copied ? 'Appended & copied to clipboard' : 'Appended to note — tap Copy')
           } else {
             notify(copied ? 'Copied to clipboard' : 'Saved to recents — tap Copy')
           }
         } else {
+          clearDeferredCopy()
           notify(wasAppended ? 'Appended to note' : 'Transcript saved to recents')
         }
 
@@ -215,6 +230,7 @@ export function useTranscription() {
           void navigator.storage.persist().catch(() => {})
         }
       } catch (error) {
+        clearDeferredCopy()
         if (error instanceof TranscriptionError && error.kind === 'aborted') {
           return
         }
@@ -240,29 +256,36 @@ export function useTranscription() {
   )
 
   const cancel = useCallback(() => {
+    clearDeferredCopy()
     abortRef.current?.abort()
     abortRef.current = null
     setState(initialState)
-  }, [])
+  }, [clearDeferredCopy])
 
   const reset = useCallback(() => {
+    clearDeferredCopy()
     abortRef.current?.abort()
     abortRef.current = null
     setState(initialState)
-  }, [])
+  }, [clearDeferredCopy])
 
   const retry = useCallback(() => {
     const recording = stateRef.current.recording
-    if (recording) void transcribe(recording)
-  }, [transcribe])
+    if (recording) {
+      prepareAutoCopy()
+      void transcribe(recording)
+    }
+  }, [prepareAutoCopy, transcribe])
 
   const saveForLater = useCallback(() => {
+    clearDeferredCopy()
     const recording = stateRef.current.recording
     if (recording) void queueRecording(recording)
-  }, [queueRecording])
+  }, [clearDeferredCopy, queueRecording])
 
   return {
     ...state,
+    prepareAutoCopy,
     transcribe,
     cancel,
     reset,

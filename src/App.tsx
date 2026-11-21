@@ -180,6 +180,7 @@ export default function App() {
                 audioDeviceId={settings.audioDeviceId}
                 autoStart={autoStartRecord}
                 onAutoStartHandled={() => setAutoStartRecord(false)}
+                onBeforeStop={transcription.prepareAutoCopy}
                 onRecording={handleRecording}
                 onStartNew={() => {
                   setAppendEntryId(null)

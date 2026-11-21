@@ -399,7 +399,11 @@ export async function runTranscription(
               break
             }
 
-            if (classified.kind === 'busy' || classified.kind === 'network') {
+            if (
+              classified.kind === 'busy' ||
+              classified.kind === 'network' ||
+              classified.kind === 'bad_request'
+            ) {
               nextModel = true
               break
             }

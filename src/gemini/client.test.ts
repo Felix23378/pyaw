@@ -19,10 +19,11 @@ function sseResponse(frames: string[]): Response {
 }
 
 describe('mimeTypeForApi', () => {
-  it('maps Safari audio/mp4 and audio/aac to audio/m4a', () => {
-    expect(mimeTypeForApi('audio/mp4')).toBe('audio/m4a')
-    expect(mimeTypeForApi('audio/mp4;codecs=mp4a.40.2')).toBe('audio/m4a')
-    expect(mimeTypeForApi('audio/aac')).toBe('audio/m4a')
+  it('keeps Safari audio/mp4 and normalizes m4a variants to audio/mp4', () => {
+    expect(mimeTypeForApi('audio/mp4')).toBe('audio/mp4')
+    expect(mimeTypeForApi('audio/mp4;codecs=mp4a.40.2')).toBe('audio/mp4')
+    expect(mimeTypeForApi('audio/m4a')).toBe('audio/mp4')
+    expect(mimeTypeForApi('audio/x-m4a')).toBe('audio/mp4')
     expect(mimeTypeForApi('audio/webm;codecs=opus')).toBe('audio/webm')
     expect(mimeTypeForApi('')).toBe('audio/webm')
   })
